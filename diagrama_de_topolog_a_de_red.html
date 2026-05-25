@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador Interactivo de Topología de Red</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        network: {
+                            bg: '#0f172a',
+                            panel: '#1e293b',
+                            accent: '#3b82f6',
+                            success: '#10b981',
+                            warning: '#f59e0b',
+                            danger: '#ef4444'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Estilos adicionales para animaciones suaves */
+        .traffic-dot {
+            animation: flow 2s linear infinite;
+        }
+        @keyframes flow {
+            0% { stroke-dashoffset: 100; }
+            100% { stroke-dashoffset: 0; }
+        }
+        .node-active {
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+        }
+        .node-inactive {
+            filter: grayscale(80%) opacity(60%);
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.1);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.3);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors duration-300 font-sans min-h-screen flex flex-col overflow-x-hidden">
+
+    <!-- Header / Barra de Navegación -->
+    <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 py-4 flex flex-wrap items-center justify-between gap-4 z-10 shadow-sm">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-lg">
+                <!-- Icono de Red -->
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-tight">Diseñador y Monitor de Topología</h1>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Infraestructura Corporativa & VLANs</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <!-- Botón Tránsito / Animación -->
+            <button id="btn-traffic" class="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition-all shadow-md shadow-emerald-500/20">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <span>Animar Tráfico</span>
+            </button>
+
+            <!-- Botón Restablecer Red -->
+            <button id="btn-reset" class="flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 transition-all">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18.2" />
+                </svg>
+                <span class="hidden sm:inline">Restablecer</span>
+            </button>
+
+            <!-- Selector de Tema Claro/Oscuro -->
+            <button id="btn-theme" class="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 transition-all text-slate-600 dark:text-slate-300">
+                <svg id="sun-icon" class="h-5 w-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <svg id="moon-icon" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Contenedor Principal: Grid con el Diagrama y el Panel Lateral -->
+    <main class="flex-1 flex flex-col lg:flex-row relative overflow-hidden">
+        
+        <!-- Área del Lienzo del Diagrama -->
+        <div class="flex-1 overflow-auto p-6 md:p-12 flex justify-center items-start min-h-[500px] relative" id="diagram-viewport">
+            
+            <!-- Lienzo SVG Absoluto para conectar los nodos -->
+            <svg id="connections-svg" class="absolute top-0 left-0 w-full h-full pointer-events-none z-0 overflow-visible"></svg>
+
+            <!-- Estructura del Diagrama (Flex jerárquico) -->
+            <div id="diagram-container" class="relative z-10 flex flex-col items-center gap-12 w-full max-w-5xl">
+                
+                <!-- NIVEL 1: INTERNET -->
+                <div class="flex justify-center w-full">
+                    <div id="node-internet" class="network-node bg-sky-500 hover:bg-sky-600 text-white p-4 rounded-xl shadow-lg cursor-pointer transition-all duration-300 w-52 text-center relative flex flex-col items-center gap-2 group border border-sky-400" onclick="selectNode('internet')">
+                        <div class="bg-white/20 p-2 rounded-lg">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 002 2h2m-4-3h1.5a2.5 2.5 0 012.4 3h1.1a1 1 0 01.8 1.1 2 2 0 01-1.8 1.9h-1.5a1.5 1.5 0 00-1.5 1.5v3M3.055 11l.243-.122A2 2 0 015.064 10h1.8a2 2 0 001.4-.586l1.253-1.253a2 2 0 011.4-.586h.317" />
+                            </svg>
+                        </div>
+                        <span class="font-bold tracking-wide">INTERNET</span>
+                        <span class="text-[10px] bg-sky-700/50 px-2 py-0.5 rounded-full">Proveedor de Enlace</span>
+                        <div class="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border border-white dark:border-slate-800"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NIVEL 2: FIREWALL WATCHGUARD -->
+                <div class="flex justify-center w-full">
+                    <div id="node-firewall" class="network-node bg-rose-600 hover:bg-rose-700 text-white p-4 rounded-xl shadow-lg cursor-pointer transition-all duration-300 w-52 text-center relative flex flex-col items-center gap-2 group border border-rose-500" onclick="selectNode('firewall')">
+                        <div class="bg-white/20 p-2 rounded-lg">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                            </svg>
+                        </div>
+                        <span class="font-bold tracking-wide text-xs">Firewall WatchGuard</span>
+                        <span class="text-[10px] bg-rose-800/50 px-2 py-0.5 rounded-full">Puerta de Enlace / UTM</span>
+                        <div class="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5" id="status-firewall">
+                            <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border border-white dark:border-slate-800"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NIVEL 3: CORE SWITCH 100 GB -->
+                <div class="flex justify-center w-full">
+                    <div id="node-coreswitch" class="network-node bg-slate-700 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white p-4 rounded-xl shadow-lg cursor-pointer transition-all duration-300 w-56 text-center relative flex flex-col items-center gap-2 group border border-slate-600" onclick="selectNode('coreswitch')">
+                        <div class="bg-white/10 p-2 rounded-lg">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                            </svg>
+                        </div>
+                        <span class="font-bold tracking-wide text-xs">Core Switch 100 GB</span>
+                        <span class="text-[10px] bg-slate-600 dark:bg-slate-700 px-2 py-0.5 rounded-full">Capa 3 / Core de Red</span>
+                        <div class="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5" id="status-coreswitch">
+                            <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border border-white dark:border-slate-800"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NIVEL 4: PARTICIÓN PRINCIPAL (VLAN 10, 20, 30, 40) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full relative">
+                    
+                    <!-- VLAN 10 (Tiene Sub-Niveles) -->
+                    <div class="flex flex-col items-center gap-10">
+                        <div id="node-vlan10" class="network-node bg-amber-500 hover:bg-amber-600 text-white p-4 rounded-xl shadow-lg cursor-pointer transition-all duration-300 w-48 text-center relative flex flex-col items-center gap-2 group border border-amber-400" onclick="selectNode('vlan10')">
+                            <span class="text-[10px] bg-amber-700/50 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">VLAN 10</span>
+                            <span class="font-bold text-sm">Administración</span>
+                            <span class="text-[10px] text-amber-100">Troncal de Gestión</span>
+                            <div class="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5" id="status-vlan10">
+                                <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border border-white dark:border-slate-800"></span>
+                            </div>
+                        </div>
+
+                        <!-- SUB-NIVEL DE VLAN 10 (VLAN 60, 70, 80) -->
+                        <div class="flex flex-col gap-6 w-full items-center">
+                            <!-- VLAN 60: VoIP -->
+                            <div id="node-vlan60" class="network-node bg-indigo-500 hover:bg-indigo-600 text-white p-3 rounded-lg shadow-md cursor-pointer transition-all duration-300 w-40 text-center relative flex flex-col items-center gap-1 group border border-indigo-400" onclick="selectNode('vlan60')">
+                                <span class="text-[9px] bg-indigo-700/50 px-1.5 py-0.5 rounded-full uppercase font-bold">VLAN 60</span>
+                                <span class="font-bold text-xs">VoIP</span>
+                                <div class="absolute -top-1 -right-1 flex h-2.5 w-2.5" id="status-vlan60">
+                                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 border border-white dark:border-slate-800"></span>
+                                </div>
+                            </div>
+
+                            <!-- VLAN 70: Cámaras -->
+                            <div id="node-vlan70" class="network-node bg-cyan-500 hover:bg-cyan-600 text-white p-3 rounded-lg shadow-md cursor-pointer transition-all duration-300 w-40 text-center relative flex flex-col items-center gap-1 group border border-cyan-400" onclick="selectNode('vlan70')">
+                                <span class="text-[9px] bg-cyan-700/50 px-1.5 py-0.5 rounded-full uppercase font-bold">VLAN 70</span>
+                                <span class="font-bold text-xs">Cámaras</span>
+                                <div class="absolute -top-1 -right-1 flex h-2.5 w-2.5" id="status-vlan70">
+                                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 border border-white dark:border-slate-800"></span>
+                                </div>
+                            </div>
+
+                            <!-- VLAN 80: Servidores -->
+                            <div id="node-vlan80" class="network-node bg-violet-600 hover:bg-violet-700 text-white p-3 rounded-lg shadow-md cursor-pointer transition-all duration-300 w-40 text-center relative flex flex-col items-center gap-1 group border border-violet-500" onclick="selectNode('vlan80')">
+                                <span class="text-[9px] bg-violet-800/50 px-1.5 py-0.5 rounded-full uppercase font-bold">VLAN 80</span>
+                                <span class="font-bold text-xs">Servidores</span>
+                                <div class="absolute -top-1 -right-1 flex h-2.5 w-2.5" id="status-vlan80">
+                                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 border border-white dark:border-slate-800"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- VLAN 20 -->
+                    <div class="flex flex-col items-center">
+                        <div id="node-vlan20" class="network-node bg-emerald-500 hover:bg-emerald-600 text-white p-4 rounded-xl shadow-lg cursor-pointer transition-all duration-300 w-48 text-center relative flex flex-col items-center gap-2 group border border-emerald-400" onclick="selectNode('vlan20')">
+                            <span class="text-[10px] bg-emerald-700/50 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">VLAN 20</span>
+                            <span class="font-bold text-sm">Piso 1</span>
+                            <span class="text-[10px] text-emerald-100">Usuarios / Cableado</span>
+                            <div class="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5" id="status-vlan20">
+                                <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border border-white dark:border-slate-800"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- VLAN 30 -->
+                    <div class="flex flex-col items-center">
+                        <div id="node-vlan30" class="network-node bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-xl shadow-lg cursor-pointer transition-all duration-300 w-48 text-center relative flex flex-col items-center gap-2 group border border-blue-400" onclick="selectNode('vlan30')">
+                            <span class="text-[10px] bg-blue-700/50 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">VLAN 30</span>
+                            <span class="font-bold text-sm">Piso 2</span>
+                            <span class="text-[10px] text-blue-100">Usuarios / WiFi</span>
+                            <div class="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5" id="status-vlan30">
+                                <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border border-white dark:border-slate-800"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- VLAN 40 -->
+                    <div class="flex flex-col items-center">
+                        <div id="node-vlan40" class="network-node bg-purple-500 hover:bg-purple-600 text-white p-4 rounded-xl shadow-lg cursor-pointer transition-all duration-300 w-48 text-center relative flex flex-col items-center gap-2 group border border-purple-400" onclick="selectNode('vlan40')">
+                            <span class="text-[10px] bg-purple-700/50 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">VLAN 40</span>
+                            <span class="font-bold text-sm">Piso 3</span>
+                            <span class="text-[10px] text-purple-100">Invitados / Labs</span>
+                            <div class="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5" id="status-vlan40">
+                                <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border border-white dark:border-slate-800"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Panel Lateral Informativo / Configuración -->
+        <aside id="info-panel" class="w-full lg:w-96 bg-white dark:bg-slate-800 border-t lg:border-t-0 lg:border-l border-slate-200 dark:border-slate-700 p-6 flex flex-col gap-6 overflow-y-auto shrink-0 transition-all duration-300 z-10">
+            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-4">
+                <div class="flex items-center gap-2">
+                    <span class="p-1.5 bg-slate-100 dark:bg-slate-700 rounded text-slate-500 dark:text-slate-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </span>
+                    <h2 class="font-bold text-lg">Información de Nodo</h2>
+                </div>
+                <div id="active-state" class="text-xs font-semibold px-2 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+                    Online
+                </div>
+            </div>
+
+            <!-- Contenido Dinámico de Configuración del Nodo -->
+            <div id="node-details" class="flex flex-col gap-4">
+                <div class="text-center py-8 text-slate-400 dark:text-slate-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                    </svg>
+                    Selecciona cualquier nodo o segmento de la topología para inspeccionar y editar sus propiedades.
+                </div>
+            </div>
+
+            <!-- Formulario Editable (Inicialmente Oculto) -->
+            <form id="edit-form" class="hidden flex flex-col gap-4">
+                <input type="hidden" id="edit-node-id">
+                
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Nombre del Dispositivo / Segmento</label>
+                    <input type="text" id="edit-node-name" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">ID VLAN / Tag</label>
+                        <input type="text" id="edit-node-vlan" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Direccionamiento IP</label>
+                        <input type="text" id="edit-node-ip" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Descripción y Funciones</label>
+                    <textarea id="edit-node-desc" rows="3" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+                </div>
+
+                <div class="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-800 text-xs text-slate-500 flex items-center justify-between">
+                    <span>Estado del Nodo:</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="edit-node-status" class="sr-only peer" checked>
+                        <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-emerald-500"></div>
+                    </label>
+                </div>
+
+                <div class="flex gap-2 mt-2">
+                    <button type="button" onclick="saveNodeDetails()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg text-sm transition-all shadow-md shadow-blue-500/20">
+                        Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </aside>
+
+    </main>
+
+    <!-- Modal Informativo / Feedback reemplazando alerts -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-slate-800 dark:border-slate-200">
+        <span class="p-1 bg-emerald-500 rounded-full text-white">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+            </svg>
+        </span>
+        <span id="toast-message" class="text-sm font-medium">Topología cargada con éxito</span>
+    </div>
+
+    <script>
+        // --- BASE DE DATOS DE LA RED (Estado inicial) ---
+        const initialNetworkData = {
+            'internet': {
+                name: 'INTERNET (Enlace)',
+                vlan: 'WAN / Pública',
+                ip: '200.48.10.254/29',
+                desc: 'Enlace de Fibra Óptica Dedicado con redundancia BGP de 1 Gbps simétrico.',
+                status: true
+            },
+            'firewall': {
+                name: 'Firewall WatchGuard M390',
+                vlan: 'N/A (Capa 3)',
+                ip: '192.168.1.1 (LAN)',
+                desc: 'Equipo UTM encargado del filtrado Web, prevención de intrusos (IPS), Gateway antivirus y control de VPNs IPSec y SSL.',
+                status: true
+            },
+            'coreswitch': {
+                name: 'Core Switch Dell S5248F-ON',
+                vlan: 'Troncal LACP',
+                ip: '192.168.1.2',
+                desc: 'Switch central de 100 Gbps. Capa 3 encargada del enrutamiento inter-VLAN. Soporta el backbone principal.',
+                status: true
+            },
+            'vlan10': {
+                name: 'VLAN 10 - Administración',
+                vlan: '10',
+                ip: '10.10.10.0/24',
+                desc: 'Segmento dedicado a la gestión administrativa, computadoras de directores y equipo financiero. Tiene acceso prioritario.',
+                status: true
+            },
+            'vlan20': {
+                name: 'VLAN 20 - Piso 1',
+                vlan: '20',
+                ip: '10.10.20.0/23',
+                desc: 'Red de usuarios locales ubicados en la primera planta. Acceso estándar a internet.',
+                status: true
+            },
+            'vlan30': {
+                name: 'VLAN 30 - Piso 2',
+                vlan: '30',
+                ip: '10.10.30.0/23',
+                desc: 'Red corporativa para el segundo piso, incluye conexiones por cable e interfaces de puntos de acceso Wi-Fi corporativos.',
+                status: true
+            },
+            'vlan40': {
+                name: 'VLAN 40 - Piso 3',
+                vlan: '40',
+                ip: '10.10.40.0/24',
+                desc: 'Red reservada para laboratorios de desarrollo y red de invitados temporal de alta velocidad.',
+                status: true
+            },
+            'vlan60': {
+                name: 'VLAN 60 - VoIP',
+                vlan: '60',
+                ip: '10.10.60.0/24',
+                desc: 'Red de Voz sobre IP. Configurada con prioridad QoS estricta para garantizar llamadas sin pérdidas.',
+                status: true
+            },
+            'vlan70': {
+                name: 'VLAN 70 - Cámaras (CCTV)',
+                vlan: '70',
+                ip: '10.10.70.0/24',
+                desc: 'Circuito cerrado de televisión. Tránsito de vídeo HD continuo desde cámaras IP hacia el grabador NVR central.',
+                status: true
+            },
+            'vlan80': {
+                name: 'VLAN 80 - Servidores',
+                vlan: '80',
+                ip: '10.10.80.0/24',
+                desc: 'Segmento para servidores locales (Active Directory, Bases de Datos, ERP y Almacenamiento local SAN).',
+                status: true
+            }
+        };
+
+        // Copia de trabajo de la red
+        let networkData = JSON.parse(JSON.stringify(initialNetworkData));
+        let activeNodeId = null;
+        let trafficActive = true;
+
+        // --- RELACIONES DE CONEXIONES ---
+        const connections = [
+            { from: 'internet', to: 'firewall' },
+            { from: 'firewall', to: 'coreswitch' },
+            { from: 'coreswitch', to: 'vlan10' },
+            { from: 'coreswitch', to: 'vlan20' },
+            { from: 'coreswitch', to: 'vlan30' },
+            { from: 'coreswitch', to: 'vlan40' },
+            { from: 'vlan10', to: 'vlan60' },
+            { from: 'vlan10', to: 'vlan70' },
+            { from: 'vlan10', to: 'vlan80' }
+        ];
+
+        // --- GESTIÓN DE TEMAS (DARK/LIGHT) ---
+        const btnTheme = document.getElementById('btn-theme');
+        const sunIcon = document.getElementById('sun-icon');
+        const moonIcon = document.getElementById('moon-icon');
+
+        function initTheme() {
+            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                sunIcon.classList.remove('hidden');
+                moonIcon.classList.add('hidden');
+            } else {
+                document.documentElement.classList.remove('dark');
+                sunIcon.classList.add('hidden');
+                moonIcon.classList.remove('hidden');
+            }
+        }
+
+        btnTheme.addEventListener('click', () => {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.theme = 'light';
+                sunIcon.classList.add('hidden');
+                moonIcon.classList.remove('hidden');
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.theme = 'dark';
+                sunIcon.classList.remove('hidden');
+                moonIcon.classList.add('hidden');
+            }
+            setTimeout(drawLines, 200); // Redibujar líneas con los nuevos colores de fondo
+        });
+
+        // --- DIBUJADO DE LAS LÍNEAS DE CONEXIÓN (SVG) ---
+        function drawLines() {
+            const svg = document.getElementById('connections-svg');
+            const viewport = document.getElementById('diagram-viewport');
+            const rectViewport = viewport.getBoundingClientRect();
+            
+            // Ajustar tamaño del lienzo de forma dinámica
+            svg.setAttribute('width', viewport.scrollWidth);
+            svg.setAttribute('height', viewport.scrollHeight);
+            
+            // Limpiar líneas anteriores
+            svg.innerHTML = '';
+
+            const isDark = document.documentElement.classList.contains('dark');
+            const lineColorActive = isDark ? '#3b82f6' : '#2563eb';
+            const lineColorInactive = isDark ? '#475569' : '#cbd5e1';
+
+            connections.forEach(conn => {
+                const elFrom = document.getElementById(`node-${conn.from}`);
+                const elTo = document.getElementById(`node-${conn.to}`);
+
+                if (!elFrom || !elTo) return;
+
+                const rectFrom = elFrom.getBoundingClientRect();
+                const rectTo = elTo.getBoundingClientRect();
+
+                // Calcular puntos relativos al contenedor del viewport
+                const fromX = rectFrom.left - rectViewport.left + viewport.scrollLeft + rectFrom.width / 2;
+                const fromY = rectFrom.bottom - rectViewport.top + viewport.scrollTop;
+                const toX = rectTo.left - rectViewport.left + viewport.scrollLeft + rectTo.width / 2;
+                const toY = rectTo.top - rectViewport.top + viewport.scrollTop;
+
+                // Definir estado de la conexión basado en la salud de los extremos
+                const active = networkData[conn.from].status && networkData[conn.to].status;
+                const color = active ? lineColorActive : lineColorInactive;
+
+                // Crear elemento de ruta para la conexión de red (Estilo ortogonal o curva suave)
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                
+                // Generar curva de flujo elegante (Bezier cúbico)
+                const midY = fromY + (toY - fromY) / 2;
+                const pathData = `M ${fromX} ${fromY} C ${fromX} ${midY}, ${toX} ${midY}, ${toX} ${toY}`;
+
+                path.setAttribute('d', pathData);
+                path.setAttribute('stroke', color);
+                path.setAttribute('stroke-width', active ? '3' : '2');
+                path.setAttribute('fill', 'none');
+                
+                if (active) {
+                    path.setAttribute('class', 'transition-all duration-300');
+                    path.setAttribute('stroke-linecap', 'round');
+                } else {
+                    path.setAttribute('stroke-dasharray', '5,5');
+                }
+
+                svg.appendChild(path);
+
+                // Si la animación de tráfico está activa, dibujar una línea de flujo luminosa encima
+                if (active && trafficActive) {
+                    const trafficPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                    trafficPath.setAttribute('d', pathData);
+                    trafficPath.setAttribute('stroke', '#10b981'); // Color esmeralda de datos en movimiento
+                    trafficPath.setAttribute('stroke-width', '4');
+                    trafficPath.setAttribute('fill', 'none');
+                    trafficPath.setAttribute('stroke-dasharray', '8, 25');
+                    trafficPath.setAttribute('class', 'traffic-dot');
+                    trafficPath.setAttribute('stroke-linecap', 'round');
+                    svg.appendChild(trafficPath);
+                }
+            });
+        }
+
+        // --- SELECCIONAR Y MOSTRAR DETALLES DEL NODO ---
+        function selectNode(id) {
+            activeNodeId = id;
+            const data = networkData[id];
+            
+            // Destacar el nodo seleccionado visualmente
+            document.querySelectorAll('.network-node').forEach(node => {
+                node.classList.remove('ring-4', 'ring-blue-500/50', 'ring-offset-2', 'dark:ring-offset-slate-900');
+            });
+            document.getElementById(`node-${id}`).classList.add('ring-4', 'ring-blue-500/50', 'ring-offset-2', 'dark:ring-offset-slate-900');
+
+            // Actualizar panel lateral
+            const detailsContainer = document.getElementById('node-details');
+            const form = document.getElementById('edit-form');
+            const activeState = document.getElementById('active-state');
+
+            // Render de la información de estado
+            if (data.status) {
+                activeState.textContent = 'En Línea';
+                activeState.className = 'text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900';
+            } else {
+                activeState.textContent = 'Desconectado / Error';
+                activeState.className = 'text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-400 border border-rose-200 dark:border-rose-900';
+            }
+
+            // Inyectar tarjeta informativa
+            detailsContainer.innerHTML = `
+                <div class="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-800 flex flex-col gap-3">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <span class="text-xs uppercase font-extrabold text-blue-500 tracking-wider">VLAN / Interfaz</span>
+                            <h3 class="font-bold text-lg text-slate-800 dark:text-white">${data.name}</h3>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div class="bg-white dark:bg-slate-800 p-2 rounded border border-slate-100 dark:border-slate-700">
+                            <span class="text-slate-400 block mb-0.5">VLAN ID</span>
+                            <span class="font-mono font-bold">${data.vlan}</span>
+                        </div>
+                        <div class="bg-white dark:bg-slate-800 p-2 rounded border border-slate-100 dark:border-slate-700">
+                            <span class="text-slate-400 block mb-0.5">Rango IP / Enlace</span>
+                            <span class="font-mono font-bold break-all">${data.ip}</span>
+                        </div>
+                    </div>
+                    <div class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed pt-2 border-t border-slate-100 dark:border-slate-800">
+                        ${data.desc}
+                    </div>
+                </div>
+            `;
+
+            // Llenar campos del formulario de edición
+            document.getElementById('edit-node-id').value = id;
+            document.getElementById('edit-node-name').value = data.name;
+            document.getElementById('edit-node-vlan').value = data.vlan;
+            document.getElementById('edit-node-ip').value = data.ip;
+            document.getElementById('edit-node-desc').value = data.desc;
+            document.getElementById('edit-node-status').checked = data.status;
+
+            form.classList.remove('hidden');
+        }
+
+        // --- GUARDAR DETALLES MODIFICADOS ---
+        function saveNodeDetails() {
+            const id = document.getElementById('edit-node-id').value;
+            if (!id) return;
+
+            const name = document.getElementById('edit-node-name').value;
+            const vlan = document.getElementById('edit-node-vlan').value;
+            const ip = document.getElementById('edit-node-ip').value;
+            const desc = document.getElementById('edit-node-desc').value;
+            const status = document.getElementById('edit-node-status').checked;
+
+            // Guardar cambios en el dataset global
+            networkData[id].name = name;
+            networkData[id].vlan = vlan;
+            networkData[id].ip = ip;
+            networkData[id].desc = desc;
+            networkData[id].status = status;
+
+            // Actualizar apariencia física del nodo en el lienzo
+            const elNode = document.getElementById(`node-${id}`);
+            const nameEl = elNode.querySelector('.font-bold');
+            if (nameEl) nameEl.textContent = name;
+
+            // Actualizar etiqueta VLAN si existe
+            const vlanTagEl = elNode.querySelector('.uppercase');
+            if (vlanTagEl && id.startsWith('vlan')) {
+                vlanTagEl.textContent = `VLAN ${vlan}`;
+            }
+
+            // Gestionar clases de nodo activo / inactivo
+            if (status) {
+                elNode.classList.remove('node-inactive');
+                // Poner punto verde
+                const statusDot = document.getElementById(`status-${id}`) || elNode.querySelector('.absolute');
+                if (statusDot) {
+                    statusDot.innerHTML = '<span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border border-white dark:border-slate-800"></span>';
+                }
+            } else {
+                elNode.classList.add('node-inactive');
+                // Poner punto rojo
+                const statusDot = document.getElementById(`status-${id}`) || elNode.querySelector('.absolute');
+                if (statusDot) {
+                    statusDot.innerHTML = '<span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-rose-500 border border-white dark:border-slate-800"></span>';
+                }
+            }
+
+            // Forzar refresco visual de conexiones
+            drawLines();
+            selectNode(id);
+            showToast(`Nodo '${name}' actualizado correctamente.`);
+        }
+
+        // --- SISTEMA DE TOAST PARA FEEDBACK DE ACCIONES ---
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toast-message');
+            toastMessage.textContent = message;
+            
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // --- ANIMACIÓN DE TRÁFICO ---
+        const btnTraffic = document.getElementById('btn-traffic');
+        btnTraffic.addEventListener('click', () => {
+            trafficActive = !trafficActive;
+            if (trafficActive) {
+                btnTraffic.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span>Animar Tráfico</span>
+                `;
+                btnTraffic.className = "flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition-all shadow-md shadow-emerald-500/20";
+                showToast("Simulación de tráfico de red iniciada.");
+            } else {
+                btnTraffic.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                    </svg>
+                    <span>Pausar Tráfico</span>
+                `;
+                btnTraffic.className = "flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-slate-400 hover:bg-slate-500 text-white transition-all";
+                showToast("Flujo de red en reposo.");
+            }
+            drawLines();
+        });
+
+        // --- BOTÓN RESTABLECER COMPLETO DE RED ---
+        const btnReset = document.getElementById('btn-reset');
+        btnReset.addEventListener('click', () => {
+            networkData = JSON.parse(JSON.stringify(initialNetworkData));
+            
+            // Reinstanciar todas las clases y visuales a su estado óptimo original
+            document.querySelectorAll('.network-node').forEach(node => {
+                node.classList.remove('node-inactive');
+                const id = node.id.replace('node-', '');
+                const origNode = initialNetworkData[id];
+                
+                const nameEl = node.querySelector('.font-bold');
+                if (nameEl) nameEl.textContent = origNode.name;
+
+                // Re-inicializar puntos de estado
+                const statusDot = document.getElementById(`status-${id}`) || node.querySelector('.absolute');
+                if (statusDot) {
+                    statusDot.innerHTML = '<span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border border-white dark:border-slate-800"></span>';
+                }
+            });
+
+            trafficActive = true;
+            btnTraffic.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <span>Animar Tráfico</span>
+            `;
+            btnTraffic.className = "flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition-all shadow-md shadow-emerald-500/20";
+
+            if (activeNodeId) {
+                selectNode(activeNodeId);
+            }
+            
+            drawLines();
+            showToast("Topología de red restaurada por defecto.");
+        });
+
+        // --- EVENTOS INICIALES ---
+        window.addEventListener('load', () => {
+            initTheme();
+            setTimeout(drawLines, 200); // Dar margen al render del DOM para calcular coordenadas
+        });
+        
+        // Redibujar dinámicamente conexiones al redimensionar ventana
+        window.addEventListener('resize', drawLines);
+    </script>
+</body>
+</html>
